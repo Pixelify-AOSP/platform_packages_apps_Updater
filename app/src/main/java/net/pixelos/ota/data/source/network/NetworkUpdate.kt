@@ -12,21 +12,43 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonIgnoreUnknownKeys
 import net.pixelos.ota.data.Update
+import net.pixelos.ota.deviceinfo.DeviceInfoUtils
 import net.pixelos.ota.misc.Constants
 import java.net.URI
 
-// Commented out fields below are available in production, but not needed in runtime.
-// If you wish to uncomment any of them, please update the README.md to indicate that.
+@Suppress("PROVIDED_RUNTIME_TOO_LOW")
+@Serializable
+@JsonIgnoreUnknownKeys
+data class MaintainerInfo(
+    @SerialName("maintainer") val maintainer: String? = null,
+    @SerialName("status") val status: String? = null,
+    @SerialName("oem") val oem: String? = null,
+    @SerialName("device") val device: String? = null,
+    @SerialName("codename") val codename: String? = null,
+    @SerialName("github") val github: String? = null,
+    @SerialName("telegram") val telegram: String? = null,
+    @SerialName("donation_link") val donationLink: String? = null,
+    @SerialName("version") val version: String? = null,
+) {
+    val supportUrl: String? get() = telegram
+    val donationUrl: String? get() = donationLink
+    val officialStatus: String get() = status?.uppercase() ?: "OFFICIAL"
+}
 
 @Suppress("PROVIDED_RUNTIME_TOO_LOW")
 @Serializable
 @JsonIgnoreUnknownKeys
 data class NetworkUpdate(
-    // @SerialName("date") val date: String,
-    @SerialName("datetime") val datetime: Long,
-    @SerialName("files") val files: List<NetworkUpdateFile>,
+    @SerialName("datetime") val datetime: Long = 0,
+    @SerialName("files") val files: List<NetworkUpdateFile> = emptyList(),
     @SerialName("incremental") val incremental: List<NetworkUpdateFile>? = null,
-    @SerialName("version") val version: String,
+    @SerialName("version") val version: String = "",
+    @SerialName("device") val device: String? = null,
+    val maintainer: String? = null,
+    val github: String? = null,
+    val forum: String? = null,
+    val paypal: String? = null,
+    val status: String? = null,
 )
 
 @Suppress("PROVIDED_RUNTIME_TOO_LOW")
@@ -37,8 +59,8 @@ data class NetworkUpdateFile(
     // @SerialName("datetime") val datetime: Long? = null,
     @SerialName("filename") val filename: String,
     // @SerialName("filepath") val filepath: String,
-    @SerialName("os_patch_level") val osPatchLevel: String,
-    @SerialName("os_sdk_level") val osSdkLevel: Int,
+    @SerialName("os_patch_level") val osPatchLevel: String? = null,
+    @SerialName("os_sdk_level") val osSdkLevel: Int = 0,
     @SerialName("ota_property_files") val otaPropertyFiles: String? = null,
     // @SerialName("sha1") val sha1: String,
     @SerialName("sha256") val sha256: String,
@@ -69,8 +91,6 @@ private fun String.parsePackageFileRanges(packageSize: Long) =
 
 fun NetworkUpdateFile.validate(label: String) {
     require(filename.isNotBlank()) { "$label.filename must not be blank" }
-    require(osPatchLevel.isNotBlank()) { "$label.os_patch_level must not be blank" }
-    require(osSdkLevel > 0) { "$label.os_sdk_level must be positive" }
     require(sha256.matches(Regex("[0-9a-f]{64}"))) { "$label.sha256 must be lowercase hex" }
     require(size > 0) { "$label.size must be positive" }
     require(URI(url).scheme.equals("https", ignoreCase = true)) {
@@ -114,8 +134,8 @@ private fun NetworkUpdate.toUpdate(file: NetworkUpdateFile): Update {
         fileSize = file.size,
         downloadUrl = file.url,
         version = version,
-        osPatchLevel = file.osPatchLevel,
-        osSdkLevel = file.osSdkLevel,
+        osPatchLevel = file.osPatchLevel ?: DeviceInfoUtils.buildSecurityPatch,
+        osSdkLevel = if (file.osSdkLevel > 0) file.osSdkLevel else DeviceInfoUtils.sdkLevel,
         payloadMetadataOffset = payloadMetadataRange?.offset,
         payloadMetadataSize = payloadMetadataRange?.size,
         payloadOffset = payloadRange?.offset,
@@ -123,6 +143,12 @@ private fun NetworkUpdate.toUpdate(file: NetworkUpdateFile): Update {
         payloadPropertiesOffset = payloadPropertiesRange?.offset,
         payloadPropertiesSize = payloadPropertiesRange?.size,
         isAvailableOnline = true,
+        type = status?.uppercase() ?: "OFFICIAL",
+        maintainer = maintainer,
+        githubUrl = github,
+        forumUrl = forum,
+        donationUrl = paypal?.takeIf { it.isNotBlank() },
+        device = device?.removePrefix("custom_"),
     )
 }
 

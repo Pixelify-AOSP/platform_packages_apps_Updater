@@ -23,6 +23,14 @@ data class UpdateItemState(
 
     val progress: ProgressState?,
     val actions: UpdateActions,
+
+    val maintainer: String? = null,
+    val githubUrl: String? = null,
+    val forumUrl: String? = null,
+    val donationUrl: String? = null,
+    val device: String? = null,
+    val buildType: String? = null,
+    val phase: UpdateOperationPhase = UpdateOperationPhase.IDLE,
 )
 
 sealed interface ProgressState {

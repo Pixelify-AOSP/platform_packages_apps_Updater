@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import net.pixelos.ota.data.ChangelogState
 import net.pixelos.ota.data.Update
+import net.pixelos.ota.data.source.network.MaintainerInfo
 import net.pixelos.ota.updatescheck.UpdatesCheckModel
 import net.pixelos.ota.updatescheck.UpdatesCheckState
 
@@ -35,6 +36,8 @@ class UpdatesViewModel(
         val lastCheckedTimestamp: Long = 0L,
         val hasUpdateCheckFailed: Boolean = false,
         val changelogState: ChangelogState = ChangelogState.Idle,
+        val deviceStatus: String? = null,
+        val maintainerInfo: MaintainerInfo? = null,
     ) {
         val updatesCheckModel = UpdatesCheckModel(
             state = when {
@@ -80,7 +83,22 @@ class UpdatesViewModel(
                 .distinctUntilChangedBy { it.isOnline }
                 .collect { networkState ->
                     _uiState.update { it.copy(isOnline = networkState.isOnline) }
+                    if (networkState.isOnline) {
+                        launch { repository.fetchMaintainerInfo() }
+                    }
                 }
+        }
+
+        viewModelScope.launch {
+            appStateRepository.deviceStatusFlow.collect { status ->
+                _uiState.update { it.copy(deviceStatus = status) }
+            }
+        }
+
+        viewModelScope.launch {
+            appStateRepository.maintainerInfoFlow.collect { info ->
+                _uiState.update { it.copy(maintainerInfo = info) }
+            }
         }
     }
 

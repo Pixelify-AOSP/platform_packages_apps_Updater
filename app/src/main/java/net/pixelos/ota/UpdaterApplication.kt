@@ -48,6 +48,7 @@ class UpdaterApplication : Application() {
             networkDataSource = networkDataSource,
             localDataSource = localDataSource,
             userPreferencesRepository = userPreferencesRepository,
+            appStateRepository = appStateRepository,
         )
     }
 

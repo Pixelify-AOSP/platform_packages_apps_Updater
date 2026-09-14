@@ -10,9 +10,11 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -23,7 +25,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import com.android.settingslib.spa.framework.compose.LocalNavController
 import com.android.settingslib.spa.framework.compose.NavControllerWrapper
-import com.android.settingslib.spa.framework.theme.SettingsTheme
+import net.pixelos.ota.ui.theme.OpendeltaTheme
 import net.pixelos.ota.controller.UpdaterController
 import net.pixelos.ota.data.Update
 import net.pixelos.ota.data.UpdateStatus
@@ -44,6 +46,14 @@ abstract class UpdatesScaffoldActivity : ComponentActivity() {
 
     protected var importDialogVisible: Boolean by mutableStateOf(false)
 
+    private val preferencesLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == PreferencesActivity.RESULT_LOCAL_UPDATE) {
+            onLocalUpdateClick()
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -59,7 +69,7 @@ abstract class UpdatesScaffoldActivity : ComponentActivity() {
             }
 
             CompositionLocalProvider(LocalNavController provides navController) {
-                SettingsTheme {
+                OpendeltaTheme {
                     val uiState by viewModel.uiState.collectAsState()
                     UpdatesScaffoldContent(
                         uiState = uiState,
@@ -69,7 +79,7 @@ abstract class UpdatesScaffoldActivity : ComponentActivity() {
                         onRefreshClick = { onRefreshClick() },
                         onLocalUpdateClick = { onLocalUpdateClick() },
                         onPreferencesClick = {
-                            startActivity(
+                            preferencesLauncher.launch(
                                 Intent(
                                     this@UpdatesScaffoldActivity,
                                     PreferencesActivity::class.java,
@@ -168,6 +178,15 @@ private fun UpdatesScaffoldContent(
     val isPreparing = uiState.updates.any { it.status == UpdateStatus.STARTING }
     val isBusy = isChecking || isPreparing
     val isIdleAndEmpty = updateItems.isEmpty() && !isBusy
+    val isCheckError = checkUiState.displayedState is UpdatesCheckState.NoInternet ||
+            checkUiState.displayedState is UpdatesCheckState.Error
+
+    var hasCheckedInSession by remember { mutableStateOf(false) }
+    LaunchedEffect(checkUiState.displayedState) {
+        if (checkUiState.displayedState is UpdatesCheckState.Checking) {
+            hasCheckedInSession = true
+        }
+    }
 
     val activeItem = updateItems.firstOrNull { it.progress != null }
         ?: updaterController?.getDisplayUpdateId()?.let { id ->
@@ -175,12 +194,6 @@ private fun UpdatesScaffoldContent(
         } ?: updateItems.firstOrNull()
 
     SystemUpdateScreen(
-        headline = getHeadline(
-            updates = uiState.updates,
-            displayedCheckState = checkUiState.displayedState,
-            isPreparing = isPreparing,
-            hasUpdateItems = updateItems.isNotEmpty(),
-        ),
         supportingText = when (checkUiState.displayedState) {
             UpdatesCheckState.NoInternet ->
                 stringResource(R.string.check_your_internet_connection)
@@ -188,17 +201,16 @@ private fun UpdatesScaffoldContent(
             UpdatesCheckState.Error -> stringResource(R.string.updates_check_failed)
             else -> null
         },
-        supportingTextIsError = checkUiState.displayedState is UpdatesCheckState.NoInternet ||
-                checkUiState.displayedState is UpdatesCheckState.Error,
+        supportingTextIsError = isCheckError,
         isBusy = isBusy,
+        hasCheckedInSession = hasCheckedInSession && !isCheckError,
         canCheckForUpdates = model.canCheckForUpdates,
-        showDeviceInfo = isIdleAndEmpty,
-        lastCheckedTimestamp = if (isIdleAndEmpty) model.lastCheckedTimestamp else 0L,
         onBackClick = onBackClick,
         onCheckClick = onRefreshClick,
-        onLocalUpdateClick = onLocalUpdateClick,
         onPreferencesClick = onPreferencesClick,
-        updateItem = if (isBusy) null else activeItem,
+        updateItem = activeItem,
+        deviceStatus = uiState.deviceStatus,
+        maintainerInfo = uiState.maintainerInfo,
         changelogState = uiState.changelogState,
         onUpdateAction = { action ->
             val item = activeItem
@@ -211,46 +223,4 @@ private fun UpdatesScaffoldContent(
             }
         },
     )
-}
-
-@Composable
-private fun getHeadline(
-    updates: List<Update>,
-    displayedCheckState: UpdatesCheckState,
-    isPreparing: Boolean,
-    hasUpdateItems: Boolean,
-): String = when {
-    updates.any { it.status == UpdateStatus.UPDATED_NEED_REBOOT } ->
-        stringResource(R.string.installing_update_finished)
-
-    updates.any { it.status == UpdateStatus.INSTALLATION_FAILED } ->
-        stringResource(R.string.installing_update_error)
-
-    updates.any { it.status == UpdateStatus.INSTALLING } ->
-        stringResource(R.string.installing_update_title)
-
-    isPreparing -> stringResource(R.string.preparing_update_title)
-
-    displayedCheckState is UpdatesCheckState.Checking ->
-        stringResource(R.string.checking_for_update_title)
-
-    displayedCheckState is UpdatesCheckState.NoInternet ||
-            displayedCheckState is UpdatesCheckState.Error ->
-        stringResource(R.string.updates_check_failed_title)
-
-    updates.any { it.status == UpdateStatus.DOWNLOADING } ->
-        stringResource(R.string.downloading_update_title)
-
-    updates.any { it.status == UpdateStatus.VERIFYING } ->
-        stringResource(R.string.verifying_update_title)
-
-    updates.any {
-        it.status == UpdateStatus.PAUSED ||
-                it.status == UpdateStatus.PAUSED_ERROR ||
-                it.status == UpdateStatus.INSTALLATION_SUSPENDED
-    } -> stringResource(R.string.update_paused_title)
-
-    hasUpdateItems -> stringResource(R.string.update_available_title)
-
-    else -> stringResource(R.string.system_up_to_date_title)
 }

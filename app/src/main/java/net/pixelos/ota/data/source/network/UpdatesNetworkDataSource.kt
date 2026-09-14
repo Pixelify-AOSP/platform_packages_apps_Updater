@@ -21,14 +21,19 @@ class UpdatesNetworkDataSource(private val context: Context) {
                 "Update server URL must use HTTPS: $base"
             }
             require(DeviceInfoUtils.device.isNotBlank()) {
-                "Missing ro.custom.device"
+                "Missing ro.ascp.ota.device or ro.custom.device"
             }
             require(DeviceInfoUtils.otaBranch.isNotBlank()) {
                 "Missing net.pixelos.version"
             }
-            require(DeviceInfoUtils.buildType.isNotBlank()) {
-                "Missing net.pixelos.build_type"
-            }
+            return base
+                .replace("{device}", DeviceInfoUtils.device)
+                .replace("{branch}", DeviceInfoUtils.otaBranch)
+        }
+
+    private val maintainerUrl: String
+        get() {
+            val base = context.getString(R.string.maintainer_url)
             return base
                 .replace("{device}", DeviceInfoUtils.device)
                 .replace("{branch}", DeviceInfoUtils.otaBranch)
@@ -36,33 +41,80 @@ class UpdatesNetworkDataSource(private val context: Context) {
 
     private val client = OkHttpClient.Builder()
         .callTimeout(10, TimeUnit.SECONDS)
-        .followRedirects(false)
+        .followRedirects(true)
         .build()
 
-    fun fetchUpdates(): List<NetworkUpdate> {
-        val request = Request.Builder()
-            .url(serverUrl)
-            .build()
+    private val json = Json { ignoreUnknownKeys = true }
 
-        val responseBody = client.newCall(request).execute().use { response ->
+    fun fetchMaintainerInfo(): MaintainerInfo? {
+        var resultMaintainer: MaintainerInfo? = null
+        var otaVersion: String? = null
+
+        // 1. Single source of truth for maintainer information: API/devices/{device}.json
+        try {
+            val req = Request.Builder().url(maintainerUrl).build()
+            client.newCall(req).execute().use { response ->
+                if (response.isSuccessful) {
+                    val body = response.body?.string()
+                    if (body != null) {
+                        resultMaintainer = json.decodeFromString<MaintainerInfo>(body)
+                    }
+                }
+            }
+        } catch (_: Exception) {}
+
+        // 2. Single source of truth for version: API/updater/{device}.json
+        try {
+            val req = Request.Builder().url(serverUrl).build()
+            client.newCall(req).execute().use { response ->
+                if (response.isSuccessful) {
+                    val body = response.body?.string()
+                    if (body != null) {
+                        val list = json.decodeFromString<List<NetworkUpdate>>(body)
+                        otaVersion = list.firstOrNull()?.version?.takeIf { it.isNotBlank() }
+                    }
+                }
+            }
+        } catch (_: Exception) {}
+
+        return (resultMaintainer ?: MaintainerInfo()).copy(version = otaVersion)
+    }
+
+    fun fetchUpdates(): List<NetworkUpdate> {
+        val request = Request.Builder().url(serverUrl).build()
+        val body = client.newCall(request).execute().use { response ->
             if (!response.isSuccessful) {
                 throw IOException("Unexpected HTTP status: ${response.code}")
             }
-
-            val body = response.body ?: throw IOException("Empty response body")
-            val contentLength = body.contentLength()
+            val b = response.body ?: throw IOException("Empty response body")
+            val contentLength = b.contentLength()
             if (contentLength > MAX_RESPONSE_BYTES) {
                 throw IOException("Update response is too large: $contentLength bytes")
             }
-            val source = body.source()
-            val hasMore = source.request(MAX_RESPONSE_BYTES + 1)
-            if (hasMore) {
+            val source = b.source()
+            if (source.request(MAX_RESPONSE_BYTES + 1)) {
                 throw IOException("Update response exceeds $MAX_RESPONSE_BYTES bytes")
             }
             source.buffer.readByteArray().decodeToString()
         }
 
-        return Json.decodeFromString<List<NetworkUpdate>>(responseBody).onEach { it.validate() }
+        val updates = json.decodeFromString<List<NetworkUpdate>>(body).onEach { it.validate() }
+
+        val maintainerInfo = fetchMaintainerInfo()
+        return if (maintainerInfo != null) {
+            updates.map { update ->
+                update.copy(
+                    maintainer = maintainerInfo.maintainer,
+                    github = maintainerInfo.github,
+                    forum = maintainerInfo.telegram,
+                    paypal = maintainerInfo.donationLink,
+                    status = maintainerInfo.status ?: "OFFICIAL",
+                    device = maintainerInfo.codename ?: update.device,
+                )
+            }
+        } else {
+            updates
+        }
     }
 
     private companion object {

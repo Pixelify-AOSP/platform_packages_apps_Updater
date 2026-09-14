@@ -13,6 +13,7 @@ import net.pixelos.ota.R
 
 object DeviceInfoUtils : SettingsLibDeviceInfoUtils() {
 
+    private const val PROP_OTA_DEVICE = "ro.ascp.ota.device"
     private const val PROP_AB_DEVICE = "ro.build.ab_update"
     private const val PROP_BUILD_DATE = "ro.build.date.utc"
     private const val PROP_BUILD_TYPE = "net.pixelos.build_type"
@@ -35,16 +36,21 @@ object DeviceInfoUtils : SettingsLibDeviceInfoUtils() {
     val buildVersion: String = SystemProperties.get(PROP_BUILD_VERSION, "")
 
     @JvmStatic
-    val device: String = SystemProperties.get(PROP_DEVICE)
+    val device: String = SystemProperties.get(PROP_OTA_DEVICE)
+        .ifBlank { SystemProperties.get("ro.ascp.device") }
+        .ifBlank { SystemProperties.get(PROP_DEVICE) }
+        .ifBlank { SystemProperties.get("ro.product.device") }
+        .ifBlank { Build.DEVICE ?: "" }
+        .removePrefix("custom_")
 
     @JvmStatic
     val isABDevice: Boolean = SystemProperties.getBoolean(PROP_AB_DEVICE, false)
 
     @JvmStatic
-    val buildType: String = SystemProperties.get(PROP_BUILD_TYPE)
+    val buildType: String = SystemProperties.get(PROP_BUILD_TYPE).ifBlank { "OFFICIAL" }
 
     @JvmStatic
-    val otaBranch: String = SystemProperties.get(PROP_OTA_BRANCH)
+    val otaBranch: String = SystemProperties.get(PROP_OTA_BRANCH).ifBlank { "17" }
 
     // Mutable at runtime
     @JvmStatic

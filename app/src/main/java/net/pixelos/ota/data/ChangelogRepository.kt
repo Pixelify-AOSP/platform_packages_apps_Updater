@@ -25,7 +25,7 @@ sealed interface ChangelogState {
 class ChangelogRepository(private val context: Context) {
     private val client = OkHttpClient.Builder()
         .callTimeout(10, TimeUnit.SECONDS)
-        .followRedirects(false)
+        .followRedirects(true)
         .build()
 
     @Volatile

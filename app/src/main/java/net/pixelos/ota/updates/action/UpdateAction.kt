@@ -20,7 +20,7 @@ enum class UpdateActionType(@param:StringRes val titleRes: Int) {
     RESUME_INSTALL(R.string.action_resume),
     CANCEL_INSTALL(android.R.string.cancel),
 
-    REBOOT(R.string.reboot),
+    REBOOT(R.string.reboot_now),
     SHOW_INFO(R.string.action_info),
 
     DELETE(R.string.menu_delete_update),

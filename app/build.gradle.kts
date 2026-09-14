@@ -56,13 +56,13 @@ android {
     }
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_21
-        targetCompatibility = JavaVersion.VERSION_21
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
 
     kotlin {
         compilerOptions {
-            jvmTarget.set(JvmTarget.JVM_21)
+            jvmTarget.set(JvmTarget.JVM_17)
         }
     }
 
@@ -94,7 +94,6 @@ dependencies {
 
     debugImplementation(files("../system_libs/SettingsLib.jar", "../system_libs/SpaLib.jar"))
     debugImplementation(libs.androidx.compose.ui.tooling)
-    debugImplementation(libs.lottie.compose)
 
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.compose.material.icons.extended)

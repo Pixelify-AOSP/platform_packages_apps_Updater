@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerializationException
 import net.pixelos.ota.data.source.local.UpdatesLocalDataSource
+import net.pixelos.ota.data.source.network.MaintainerInfo
 import net.pixelos.ota.data.source.network.NetworkUpdate
 import net.pixelos.ota.data.source.network.UpdatesNetworkDataSource
 import net.pixelos.ota.data.source.network.toIncrementalUpdate
@@ -33,8 +34,20 @@ class UpdatesRepository(
     private val networkDataSource: UpdatesNetworkDataSource,
     private val localDataSource: UpdatesLocalDataSource,
     private val userPreferencesRepository: UserPreferencesRepository,
+    private val appStateRepository: AppStateRepository,
 ) {
     fun observeLocalUpdates(): Flow<List<Update>> = localDataSource.observeUpdates()
+
+    suspend fun fetchMaintainerInfo(): MaintainerInfo? {
+        if (!networkMonitor.currentNetworkState.isOnline) return null
+        return withContext(Dispatchers.IO) {
+            val maintainerInfo = networkDataSource.fetchMaintainerInfo()
+            if (maintainerInfo != null) {
+                appStateRepository.setMaintainerInfo(maintainerInfo)
+            }
+            maintainerInfo
+        }
+    }
 
     /**
      * Fetches available updates from the server, syncs the local database, and posts a
@@ -49,6 +62,10 @@ class UpdatesRepository(
         if (!networkMonitor.currentNetworkState.isOnline) return null
 
         val networkUpdates = withContext(Dispatchers.IO) {
+            val maintainerInfo = networkDataSource.fetchMaintainerInfo()
+            if (maintainerInfo != null) {
+                appStateRepository.setMaintainerInfo(maintainerInfo)
+            }
             val network = networkDataSource.fetchUpdates()
             val incrementalUpdatesEnabled = userPreferencesRepository.getIncrementalUpdates()
             persistIncrementalLinks(if (incrementalUpdatesEnabled) network else emptyList())

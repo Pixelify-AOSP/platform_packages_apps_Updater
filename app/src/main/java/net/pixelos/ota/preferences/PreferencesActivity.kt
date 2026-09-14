@@ -29,9 +29,18 @@ class PreferencesActivity : ComponentActivity() {
             }
             CompositionLocalProvider(LocalNavController provides navController) {
                 SettingsTheme {
-                    PreferencesScreen()
+                    PreferencesScreen(
+                        onLocalUpdateClick = {
+                            setResult(RESULT_LOCAL_UPDATE)
+                            finish()
+                        }
+                    )
                 }
             }
         }
+    }
+
+    companion object {
+        const val RESULT_LOCAL_UPDATE = 1001
     }
 }

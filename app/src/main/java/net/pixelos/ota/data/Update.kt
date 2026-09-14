@@ -31,6 +31,11 @@ data class Update(
     val timestamp: Long = 0,
     val type: String? = null,
     val version: String = "",
+    val maintainer: String? = null,
+    val githubUrl: String? = null,
+    val forumUrl: String? = null,
+    val donationUrl: String? = null,
+    val device: String? = null,
 ) {
     fun withAvailableOnline(v: Boolean) = copy(isAvailableOnline = v)
     fun withDownloadId(v: String) = copy(downloadId = v)
@@ -49,6 +54,7 @@ data class Update(
     fun withTimestamp(v: Long) = copy(timestamp = v)
     fun withType(v: String?) = copy(type = v)
     fun withVersion(v: String) = copy(version = v)
+    fun withDevice(v: String?) = copy(device = v)
 
     fun toBuilder() = Builder(this)
 
@@ -76,6 +82,11 @@ data class Update(
         private var timestamp: Long = 0,
         private var type: String? = null,
         private var version: String = "",
+        private var maintainer: String? = null,
+        private var githubUrl: String? = null,
+        private var forumUrl: String? = null,
+        private var donationUrl: String? = null,
+        private var device: String? = null,
     ) {
         constructor(update: Update) : this(
             update.isAvailableOnline, update.downloadId, update.downloadUrl,
@@ -84,7 +95,8 @@ data class Update(
             update.payloadMetadataOffset, update.payloadMetadataSize, update.payloadOffset,
             update.payloadSize, update.payloadPropertiesOffset, update.payloadPropertiesSize,
             update.progress, update.speed, update.status, update.timestamp, update.type,
-            update.version,
+            update.version, update.maintainer, update.githubUrl, update.forumUrl,
+            update.donationUrl, update.device,
         )
 
         fun setAvailableOnline(v: Boolean) = apply { isAvailableOnline = v }
@@ -110,11 +122,17 @@ data class Update(
         fun setTimestamp(v: Long) = apply { timestamp = v }
         fun setType(v: String?) = apply { type = v }
         fun setVersion(v: String) = apply { version = v }
+        fun setMaintainer(v: String?) = apply { maintainer = v }
+        fun setGithubUrl(v: String?) = apply { githubUrl = v }
+        fun setForumUrl(v: String?) = apply { forumUrl = v }
+        fun setDonationUrl(v: String?) = apply { donationUrl = v }
+        fun setDevice(v: String?) = apply { device = v }
         fun build() = Update(
             isAvailableOnline, downloadId, downloadUrl, eta, file, fileSize,
             isFinalizing, installProgress, name, osPatchLevel, osSdkLevel, payloadMetadataOffset,
             payloadMetadataSize, payloadOffset, payloadSize, payloadPropertiesOffset,
             payloadPropertiesSize, progress, speed, status, timestamp, type, version,
+            maintainer, githubUrl, forumUrl, donationUrl, device,
         )
     }
 

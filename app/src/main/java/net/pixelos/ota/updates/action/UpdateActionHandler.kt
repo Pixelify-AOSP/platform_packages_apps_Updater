@@ -15,12 +15,9 @@ import net.pixelos.ota.UpdaterApplication
 import net.pixelos.ota.controller.UpdaterController
 import net.pixelos.ota.controller.UpdaterService
 import net.pixelos.ota.data.Update
-import net.pixelos.ota.deviceinfo.DeviceInfoUtils
 import net.pixelos.ota.misc.Utils
 import net.pixelos.ota.util.BatteryMonitor.BatteryState
 import net.pixelos.ota.util.InstallUtils
-import net.pixelos.ota.util.StringUtil
-import java.time.format.FormatStyle
 
 class UpdateActionHandler(
     private val activity: Activity,
@@ -95,15 +92,15 @@ class UpdateActionHandler(
                     return
                 }
 
-                val confirmInstall = { showInstallConfirmation(update) }
+                val performInstall = { Utils.triggerUpdate(activity, update.downloadId) }
                 if (InstallUtils.canStreamUpdate(
                         update,
                         userPreferencesRepository.getStreamUpdatesBlocking(),
                     )
                 ) {
-                    runDownloadWithMeteredWarning(confirmInstall)
+                    runDownloadWithMeteredWarning(performInstall)
                 } else {
-                    confirmInstall()
+                    performInstall()
                 }
             }
 
@@ -194,38 +191,6 @@ class UpdateActionHandler(
             title = activity.getString(R.string.update_over_metered_network_title),
             message = activity.getString(R.string.update_over_metered_network_message),
             onConfirm = downloadAction,
-        )
-    }
-
-    private fun showInstallConfirmation(update: Update) {
-        val messageRes = if (DeviceInfoUtils.isABDevice) {
-            R.string.apply_update_dialog_message_ab
-        } else {
-            R.string.apply_update_dialog_message
-        }
-        val buildDate = StringUtil.getDateLocalizedUTC(
-            activity,
-            FormatStyle.MEDIUM,
-            update.timestamp,
-        )
-        val buildInfoText = activity.getString(
-            R.string.list_build_version_date,
-            update.version,
-            buildDate,
-        )
-        showDialog(
-            AlertDialogState(
-                title = activity.getString(R.string.apply_update_dialog_title),
-                text = AnnotatedString(
-                    activity.getString(
-                        messageRes,
-                        buildInfoText,
-                        activity.getString(android.R.string.ok),
-                    )
-                ),
-                onConfirm = { Utils.triggerUpdate(activity, update.downloadId) },
-                showDismiss = true,
-            )
         )
     }
 

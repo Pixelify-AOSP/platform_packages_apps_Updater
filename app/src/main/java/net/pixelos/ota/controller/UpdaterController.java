@@ -283,6 +283,8 @@ public class UpdaterController {
                         ABUpdateInstaller.getInstance(mContext, this,
                                 ((UpdaterApplication) mContext).getUserPreferencesRepository())
                                 .install(downloadId);
+                    } else {
+                        Utils.triggerUpdate(mContext, downloadId);
                     }
                 } else {
                     if (!fallbackIncrementalToFull(downloadId)) {

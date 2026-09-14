@@ -5,6 +5,7 @@
 
 package net.pixelos.ota.preferences
 
+import android.content.Intent
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.IntState
 import androidx.compose.runtime.getValue
@@ -14,6 +15,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.android.settingslib.spa.widget.preference.ListPreference
 import com.android.settingslib.spa.widget.preference.ListPreferenceModel
@@ -22,6 +24,7 @@ import com.android.settingslib.spa.widget.preference.Preference
 import com.android.settingslib.spa.widget.preference.PreferenceModel
 import com.android.settingslib.spa.widget.preference.SwitchPreference
 import com.android.settingslib.spa.widget.preference.SwitchPreferenceModel
+import com.android.settingslib.spa.widget.scaffold.MoreOptionsAction
 import com.android.settingslib.spa.widget.scaffold.RegularScaffold
 import com.android.settingslib.spa.widget.ui.Category
 import kotlinx.coroutines.CoroutineScope
@@ -39,7 +42,9 @@ import java.io.File
 import java.util.Locale
 
 @Composable
-fun PreferencesScreen() {
+fun PreferencesScreen(
+    onLocalUpdateClick: () -> Unit = {},
+) {
     val context = LocalContext.current
     val application = remember(context) { context.applicationContext as UpdaterApplication }
     val repository = application.userPreferencesRepository
@@ -52,7 +57,26 @@ fun PreferencesScreen() {
         !context.resources.getBoolean(R.bool.config_hideRecoveryUpdate) &&
                 installRecoveryScriptExists()
     }
-    RegularScaffold(title = stringResource(R.string.display_name)) {
+    RegularScaffold(
+        title = stringResource(R.string.display_name),
+        actions = {
+            MoreOptionsAction {
+                MenuItem(
+                    text = stringResource(R.string.local_update_import),
+                    onClick = onLocalUpdateClick,
+                )
+                val reportIssueUrl = stringResource(R.string.report_issue_url)
+                if (reportIssueUrl.isNotBlank()) {
+                    MenuItem(
+                        text = stringResource(R.string.report_issues),
+                        onClick = {
+                            context.startActivity(Intent(Intent.ACTION_VIEW, reportIssueUrl.toUri()))
+                        },
+                    )
+                }
+            }
+        },
+    ) {
         PreferencesContent(
             repository,
             batteryMonitor,
